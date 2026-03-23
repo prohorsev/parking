@@ -60,7 +60,6 @@ normalises it into a unified schema, stores it in PostgreSQL, and exposes a clea
 ├── internal/
 │   ├── api/            # HTTP router + handlers (chi)
 │   ├── aggregator/     # orchestration: fetch → normalise → cache → serve
-│   ├── cache/          # thread-safe in-memory TTL cache
 │   ├── config/         # env-based configuration
 │   ├── domain/         # shared domain model (ParkingLot, SearchParams)
 │   ├── provider/

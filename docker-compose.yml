@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: parking-postgres
     environment:
       POSTGRES_USER: parking
       POSTGRES_PASSWORD: parking
@@ -15,13 +16,36 @@ services:
       timeout: 5s
       retries: 10
 
-  api:
+  rabbitmq:
+    image: rabbitmq:4.2.5-management
+    container_name: parking-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: parking
+      RABBITMQ_DEFAULT_PASS: parking
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
     build: .
+    container_name: parking-app
     depends_on:
       postgres:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       DATABASE_URL: "postgres://parking:parking@postgres:5432/parking?sslmode=disable"
+      RABBITMQ_URL: "amqp://parking:parking@rabbitmq:5672/"
       LISTEN_ADDR: ":8080"
       MIGRATIONS_PATH: "./migrations"
       PROVIDER_A_PORT: "9001"
@@ -32,3 +56,4 @@ services:
 
 volumes:
   postgres_data:
+  rabbitmq_data:

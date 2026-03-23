@@ -6,9 +6,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/parking/api/internal/aggregator"
+	"github.com/parking/api/internal/queue"
 )
 
-func NewRouter(agg *aggregator.Aggregator) http.Handler {
+func NewRouter(agg *aggregator.Aggregator, pub *queue.Publisher) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -16,7 +17,7 @@ func NewRouter(agg *aggregator.Aggregator) http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	h := &handler{agg: agg}
+	h := &handler{agg: agg, pub: pub}
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -24,6 +25,7 @@ func NewRouter(agg *aggregator.Aggregator) http.Handler {
 
 	r.Route("/parking", func(r chi.Router) {
 		r.Get("/", h.getParking)
+		r.Post("/", h.createParking)
 		r.Get("/{id}", h.getParkingByID)
 	})
 

@@ -15,14 +15,12 @@ import (
 	"github.com/parking/api/internal/config"
 	"github.com/parking/api/internal/provider/providera"
 	"github.com/parking/api/internal/provider/providerb"
+	"github.com/parking/api/internal/queue"
 	pgstore "github.com/parking/api/internal/repository/postgres"
 )
 
 func main() {
 	cfg := config.Load()
-
-	addrA := providera.StartMockServer(cfg.ProviderAPort)
-	addrB := providerb.StartMockServer(cfg.ProviderBPort)
 
 	db, err := pgstore.Connect(cfg.DatabaseURL)
 	if err != nil {
@@ -36,19 +34,45 @@ func main() {
 
 	repo := pgstore.NewRepository(db)
 
+	mqConn, err := queue.Connect(cfg.RabbitMQURL)
+	if err != nil {
+		log.Fatalf("rabbitmq connect: %v", err)
+	}
+	defer mqConn.Close()
+
+	publisher, err := queue.NewPublisher(mqConn)
+	if err != nil {
+		log.Fatalf("rabbitmq publisher: %v", err)
+	}
+	defer publisher.Close()
+
+	consumer, err := queue.NewConsumer(mqConn, repo)
+	if err != nil {
+		log.Fatalf("rabbitmq consumer: %v", err)
+	}
+	defer consumer.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := consumer.Start(ctx); err != nil {
+		log.Fatalf("rabbitmq consumer start: %v", err)
+	}
+
+	addrA := providera.StartMockServer(cfg.ProviderAPort)
+	addrB := providerb.StartMockServer(cfg.ProviderBPort)
+
 	agg := aggregator.New(
 		repo,
 		providera.NewClient(addrA),
 		providerb.NewClient(addrB),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	go agg.StartRefreshLoop(ctx, cfg.RefreshInterval)
 
 	srv := &http.Server{
 		Addr:         cfg.ListenAddr,
-		Handler:      api.NewRouter(agg),
+		Handler:      api.NewRouter(agg, publisher),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
