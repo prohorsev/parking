@@ -54,11 +54,11 @@ func (c *Consumer) Start(ctx context.Context) error {
 					log.Println("queue consumer: channel closed")
 					return
 				}
-				if err := c.handle(msg); err != nil {
+				if err = c.handle(msg); err != nil {
 					log.Printf("queue consumer: handle error: %v — requeueing", err)
-					msg.Nack(false, true)
+					_ = msg.Nack(false, true)
 				} else {
-					msg.Ack(false)
+					_ = msg.Ack(false)
 				}
 			case <-ctx.Done():
 				log.Println("queue consumer: context cancelled, stopping")
@@ -73,7 +73,7 @@ func (c *Consumer) Start(ctx context.Context) error {
 func (c *Consumer) handle(msg amqp.Delivery) error {
 	var lot domain.ParkingLot
 	if err := json.Unmarshal(msg.Body, &lot); err != nil {
-		msg.Ack(false)
+		_ = msg.Ack(false)
 		return fmt.Errorf("unmarshal (message discarded): %w", err)
 	}
 	if err := c.repo.Upsert([]domain.ParkingLot{lot}); err != nil {
@@ -84,4 +84,4 @@ func (c *Consumer) handle(msg amqp.Delivery) error {
 	return nil
 }
 
-func (c *Consumer) Close() { c.ch.Close() }
+func (c *Consumer) Close() { _ = c.ch.Close() }

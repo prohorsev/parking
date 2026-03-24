@@ -30,7 +30,7 @@ func (c *Client) FetchAll() ([]domain.ParkingLot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("provider A: GET /lots: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("provider A: unexpected status %d", resp.StatusCode)

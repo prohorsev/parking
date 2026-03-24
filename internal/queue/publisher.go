@@ -42,4 +42,4 @@ func (p *Publisher) Publish(ctx context.Context, lot domain.ParkingLot) error {
 	)
 }
 
-func (p *Publisher) Close() { p.ch.Close() }
+func (p *Publisher) Close() { _ = p.ch.Close() }

@@ -79,7 +79,7 @@ func (r *Repository) Upsert(lots []domain.ParkingLot) error {
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	for _, lot := range lots {
 		if _, err := tx.NamedExec(upsertSQL, lot); err != nil {

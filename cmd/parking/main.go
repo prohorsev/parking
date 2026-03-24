@@ -26,9 +26,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("db connect: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err = db.Close(); err != nil {
+			log.Printf("db close error: %v", err)
+		}
+	}()
 
-	if err := pgstore.RunMigrations(db, cfg.MigrationsPath); err != nil {
+	if err = pgstore.RunMigrations(db, cfg.MigrationsPath); err != nil {
 		log.Fatalf("migrations: %v", err)
 	}
 
@@ -38,7 +42,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("rabbitmq connect: %v", err)
 	}
-	defer mqConn.Close()
+	defer func() {
+		if err = mqConn.Close(); err != nil {
+			log.Printf("rabbitmq close error: %v", err)
+		}
+	}()
 
 	publisher, err := queue.NewPublisher(mqConn)
 	if err != nil {
@@ -55,7 +63,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := consumer.Start(ctx); err != nil {
+	if err = consumer.Start(ctx); err != nil {
 		log.Fatalf("rabbitmq consumer start: %v", err)
 	}
 
@@ -89,11 +97,10 @@ func main() {
 	}()
 
 	<-quit
-	log.Println("Shutting down gracefully…")
 
 	shutCtx, shutCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutCancel()
-	if err := srv.Shutdown(shutCtx); err != nil {
+	if err = srv.Shutdown(shutCtx); err != nil {
 		log.Printf("shutdown error: %v", err)
 	}
 }
